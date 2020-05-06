@@ -1,15 +1,24 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
         "appServiceName": {
-            "type": "string"
+            "type": "string",
+            "metadata": {
+                "description": "The name of the App Service"
+            }
         },
         "appServicePlanName": {
-            "type": "string"
+            "type": "string",
+            "metadata": {
+                "description": "The name of the App Service Plan"
+            }
         },
         "appServicePlanResourceGroup": {
-            "type": "string"
+            "type": "string",
+            "metadata": {
+                "description": "Resource Group where the ASP lives"
+            }
         },
         "appServiceAppSettings": {
             "type": "array",
@@ -27,6 +36,13 @@
                 "description": "The name of the runtime stack for the container"
             }
         },
+        "customStartupCommand": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "Custom startup command for the container running on the app service"
+            }
+        },
         "customHostName": {
             "type": "string",
             "defaultValue": ""
@@ -38,80 +54,38 @@
                 "description": "This can be passed into the template via the reference function: [reference(resourceId(parameters('certificateResourceGroup'), 'Microsoft.Web/certificates', parameters('certificateName')), '2016-03-01').Thumbprint]"
             }
         },
-        "deployStagingSlot": {
+        "deploymentUsingSlots": {
             "type": "bool",
-            "defaultValue": true
-        },
-        "ipSecurityRestrictions": {
-            "type": "array",
-            "defaultValue": [
-            ],
+            "defaultValue": true,
             "metadata": {
-                "description": "Format removing backlashes: [{\"Name\": \"IP A\",\"ipAddress\": \"123.123.123.123\"},{\"Name\": \"IP B\",\"ipAddress\": \"234.234.234.234\"}]"
+                "description": "Conditional use of slots when deploying webapp"
             }
         },
-        "appServiceSlotAppSettings": {
-            "type": "array",
-            "defaultValue": [
-            ],
+        "http20Enabled": {
+            "type": "bool",
+            "defaultValue": false,
             "metadata": {
-                "description": "Use if any settings will be different between production and staging slots. Specify in the name of the setting in the SlotSetting parameters"
+                "description": "Configures a web site to allow clients to connect over http2.0"
             }
         },
-        "appServiceSlotSettingAppSettings": {
-            "type": "array",
-            "defaultValue": [
-            ],
+        "appAlwaysOn": {
+            "type": "bool",
+            "defaultValue": true,
             "metadata": {
-                "description": "List of app settings to set as slot specific: [\"EnvironmentName\", \"ReadOnly\"]"
+                "description": "Don't let the app sleep after a period of inactivity"
             }
         },
-        "appServiceSlotConnectionStrings": {
-            "type": "array",
-            "defaultValue": [
-            ],
+        "httpLoggingEnabled": {
+            "type": "bool",
+            "defaultValue": false,
             "metadata": {
-                "description": "Use if any settings will be different between production and staging slots. Specify in the name of the setting in the SlotSetting parameters"
-            }
-        },
-        "appServiceSlotSettingConnectionStrings": {
-            "type": "array",
-            "defaultValue": [
-            ],
-            "metadata": {
-                "description": "List of connection strings to set as slot specific: [\"Sql\", \"CosmosDb\", \"Redis\"]"
-            }
-        },
-        "subnetResourceId": {
-            "type": "string",
-            "defaultValue": "",
-            "metadata": {
-                "description": "Resource ID of the subnet used for vNet integration"
-            }
-        },
-        "ftpsState": {
-            "type": "string",
-            "defaultValue": "Disabled",
-            "allowedValues": [
-                "AllAllowed",
-                "FtpsOnly",
-                "Disabled"
-            ]
-        },
-        "azureStorageAccounts": {
-            "type": "object",
-            "defaultValue": {
+                "description": "Enable logging of HTTP calls to the app"
             }
         }
     },
     "variables": {
-        "useCustomHostname": "[greater(length(parameters('customHostname')), 0)]",
         "appServicePlanId": "[resourceId(parameters('appServicePlanResourceGroup'), 'Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
-        "attachAzureStorageAccounts": "[greater(length(parameters('azureStorageAccounts')), 0)]",
-        "useAppServiceSlotAppSettings": "[greater(length(parameters('appServiceSlotAppSettings')), 0)]",
-        "useAppServiceSlotConnectionStrings": "[greater(length(parameters('appServiceSlotConnectionStrings')), 0)]",
-        "appServiceApiVersion": "2018-11-01"
-
+        "useCustomHostname": "[greater(length(parameters('customHostname')), 0)]"
     },
     "resources": [
         {
@@ -120,70 +94,42 @@
             "kind": "app,linux,container",
             "apiVersion": "2016-08-01",
             "location": "[resourceGroup().location]",
-            "identity": {
-                "type": "SystemAssigned"
-            },
             "properties": {
-                "serverFarmId": "[variables('appServicePlanId')]",
                 "clientAffinityEnabled": false,
+                "serverFarmId": "[variables('appServicePlanId')]",
                 "siteConfig": {
-                    "alwaysOn": true,
+                    "alwaysOn": "[parameters('appAlwaysOn')]",
+                    "httpLoggingEnabled": "[parameters('httpLoggingEnabled')]",
                     "appSettings": "[parameters('appServiceAppSettings')]",
                     "connectionStrings": "[parameters('appServiceConnectionStrings')]",
-                    "ipSecurityRestrictions": "[parameters('ipSecurityRestrictions')]",
-                    "ftpsState": "[parameters('ftpsState')]"
+                    "linuxFxVersion": "[if(not(parameters('deploymentUsingSlots')), parameters('runtimeStack'), json('null'))]",
+                    "appCommandLine": "[parameters('customStartupCommand')]"
                 },
+                "http20Enabled": "[parameters('http20Enabled')]",
+                "httpsOnly": true
+            }
+        },
+        {
+            "name": "[concat(parameters('appServiceName'), '/',  'staging')]",
+            "condition": "[parameters('deploymentUsingSlots')]",
+            "type": "Microsoft.Web/sites/slots",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "clientAffinityEnabled": false,
+                "serverFarmId": "[variables('appServicePlanId')]",
+                "siteConfig": {
+                    "alwaysOn": false,
+                    "linuxFxVersion": "[parameters('runtimeStack')]",
+                    "appSettings": "[parameters('appServiceAppSettings')]",
+                    "connectionStrings": "[parameters('appServiceConnectionStrings')]",
+                    "appCommandLine": "[parameters('customStartupCommand')]"
+                },
+                "http20Enabled": "[parameters('http20Enabled')]",
                 "httpsOnly": true
             },
-            "resources": [
-                {
-                    "condition": "[parameters('deployStagingSlot')]",
-                    "name": "staging",
-                    "type": "slots",
-                    "apiVersion": "2016-08-01",
-                    "location": "[resourceGroup().location]",
-                    "properties": {
-                        "serverFarmId": "[variables('appServicePlanId')]",
-                        "clientAffinityEnabled": false,
-                        "siteConfig": {
-                            "appSettings": "[if(variables('useAppServiceSlotAppSettings'), parameters('appServiceSlotAppSettings'), parameters('appServiceAppSettings'))]",
-                            "connectionStrings": "[if(variables('useAppServiceSlotConnectionStrings'), parameters('appServiceSlotConnectionStrings'), parameters('appServiceConnectionStrings'))]",
-                            "ipSecurityRestrictions": "[parameters('ipSecurityRestrictions')]",
-                            "linuxFxVersion": "[parameters('runtimeStack')]",
-                            "ftpsState": "[parameters('ftpsState')]"
-                        },
-                        "httpsOnly": true
-                    },
-                    "resources": [
-                        {
-                            "condition": "[variables('attachAzureStorageAccounts')]",
-                            "name": "azureStorageAccounts",
-                            "type": "config",
-                            "apiVersion": "2018-02-01",
-                            "location": "[resourceGroup().location]",
-                            "properties": "[parameters('azureStorageAccounts')]",
-                            "dependsOn": [
-                                "staging"
-                            ]
-                        }
-                    ],
-                    "dependsOn": [
-                        "[parameters('appServiceName')]"
-                    ]
-                },
-                {
-                    "condition": "[parameters('deployStagingSlot')]",
-                    "name": "slotconfignames",
-                    "type": "config",
-                    "apiVersion": "2018-11-01",
-                    "properties": {
-                        "appSettingNames": "[parameters('appServiceSlotSettingAppSettings')]",
-                        "connectionStringNames": "[parameters('appServiceSlotSettingConnectionStrings')]"
-                    },
-                    "dependsOn": [
-                        "[parameters('appServiceName')]"
-                    ]
-                }
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
             ]
         },
         {
@@ -199,39 +145,12 @@
             "dependsOn": [
                 "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
             ]
-        },
-        {
-            "type": "Microsoft.Web/sites/config",
-            "condition": "[greater(length(parameters('subnetResourceId')), 0)]",
-            "name": "[concat(parameters('appServiceName'), '/virtualNetwork')]",
-            "apiVersion": "2018-11-01",
-            "location": "[resourceGroup().location]",
-            "properties": {
-                "subnetResourceId": "[parameters('subnetResourceId')]",
-                "swiftSupported": true
-            },
-            "dependsOn": [
-                "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
-            ]
         }
     ],
     "outputs": {
         "possibleOutboundIpAddresses": {
             "type": "array",
             "value": "[split(reference(parameters('appServiceName')).possibleOutboundIpAddresses, ',')]"
-        },
-        "managedServiceIdentityId": {
-            "type": "string",
-            "value": "[reference(parameters('appServiceName'), variables('appServiceApiVersion'), 'Full').identity.principalId]"
-        },
-        "managedServiceIdentity": {
-            "type": "object",
-            "value": "[reference(parameters('appServiceName'), variables('appServiceApiVersion'), 'Full').identity]"
-        },
-        "stagingManagedServiceIdentityId": {
-            "condition": "[parameters('deployStagingSlot')]",
-            "type": "string",
-            "value": "[reference('staging', variables('appServiceApiVersion'), 'Full').identity.principalId]"
         }
     }
 }
