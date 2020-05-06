@@ -81,6 +81,11 @@
             "metadata": {
                 "description": "Enable logging of HTTP calls to the app"
             }
+        },
+        "azureStorageAccounts": {
+            "type": "object",
+            "defaultValue": {
+            }
         }
     },
     "variables": {
@@ -103,6 +108,7 @@
                     "appSettings": "[parameters('appServiceAppSettings')]",
                     "connectionStrings": "[parameters('appServiceConnectionStrings')]",
                     "linuxFxVersion": "[if(not(parameters('deploymentUsingSlots')), parameters('runtimeStack'), json('null'))]",
+                    "azureStorageAccounts": "[if(not(parameters('deploymentUsingSlots')), parameters('azureStorageAccounts'), json('null'))]",
                     "appCommandLine": "[parameters('customStartupCommand')]"
                 },
                 "http20Enabled": "[parameters('http20Enabled')]",
@@ -120,9 +126,10 @@
                 "serverFarmId": "[variables('appServicePlanId')]",
                 "siteConfig": {
                     "alwaysOn": false,
-                    "linuxFxVersion": "[parameters('runtimeStack')]",
                     "appSettings": "[parameters('appServiceAppSettings')]",
                     "connectionStrings": "[parameters('appServiceConnectionStrings')]",
+                    "linuxFxVersion": "[parameters('runtimeStack')]",
+                    "azureStorageAccounts": "[parameters('azureStorageAccounts')]",
                     "appCommandLine": "[parameters('customStartupCommand')]"
                 },
                 "http20Enabled": "[parameters('http20Enabled')]",
