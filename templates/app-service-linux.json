@@ -97,7 +97,7 @@
             "type": "Microsoft.Web/sites",
             "name": "[parameters('appServiceName')]",
             "kind": "app,linux,container",
-            "apiVersion": "2016-08-01",
+            "apiVersion": "2019-08-01",
             "location": "[resourceGroup().location]",
             "properties": {
                 "clientAffinityEnabled": false,
@@ -119,7 +119,7 @@
             "name": "[concat(parameters('appServiceName'), '/',  'staging')]",
             "condition": "[parameters('deploymentUsingSlots')]",
             "type": "Microsoft.Web/sites/slots",
-            "apiVersion": "2016-08-01",
+            "apiVersion": "2019-08-01",
             "location": "[resourceGroup().location]",
             "properties": {
                 "clientAffinityEnabled": false,
@@ -143,7 +143,7 @@
             "type": "Microsoft.Web/sites/hostnameBindings",
             "condition": "[variables('useCustomHostname')]",
             "name": "[concat(parameters('appServiceName'), '/', if(variables('useCustomHostname'), parameters('customHostname'), 'placeholder'))]",
-            "apiVersion": "2016-08-01",
+            "apiVersion": "2019-08-01",
             "location": "[resourceGroup().location]",
             "properties": {
                 "sslState": "SniEnabled",
