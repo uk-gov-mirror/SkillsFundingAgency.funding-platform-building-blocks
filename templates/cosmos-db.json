@@ -67,7 +67,7 @@
       {
         "name": "[parameters('cosmosDbName')]",
         "type": "Microsoft.DocumentDB/databaseAccounts",
-        "apiVersion": "2015-04-08",
+        "apiVersion": "2020-09-01",
         "location": "[resourceGroup().location]",
         "kind": "[parameters('cosmosDbType')]",
         "tags": {
@@ -93,11 +93,11 @@
     "outputs": {
       "PrimaryMasterKey": {
         "type": "string",
-        "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbName')), '2015-04-08').primaryMasterKey]"
+        "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbName')), '2020-09-01').primaryMasterKey]"
       },
       "PrimaryReadonlyMasterKey": {
         "type": "string",
-        "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbName')), '2015-04-08').primaryReadonlyMasterKey]"
+        "value": "[listKeys(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosDbName')), '2020-09-01').primaryReadonlyMasterKey]"
       }
     }
   }
